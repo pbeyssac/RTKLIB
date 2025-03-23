@@ -110,6 +110,7 @@
 #define NTRIP_SVR_PORT      80          /* default ntrip-server connection port */
 #define NTRIP_MAXRSP        32768       /* max size of ntrip response */
 #define NTRIP_MAXSTR        256         /* max length of mountpoint string */
+#define NTRIP_MAXFQDN       256         /* max length of domain name */
 #define NTRIP_RSP_OK_CLI    "ICY 200 OK\r\n" /* ntrip response: client */
 #define NTRIP_RSP_OK_SVR    "OK\r\n"    /* ntrip response: server */
 #define NTRIP_RSP_SRCTBL    "SOURCETABLE 200 OK\r\n" /* ntrip response: source table */
@@ -165,7 +166,7 @@ typedef struct {            /* file control type */
 
 typedef struct {            /* tcp control type */
     int state;              /* state (0:close,1:wait,2:connect) */
-    char saddr[256];        /* address string */
+    char saddr[NTRIP_MAXFQDN]; /* address string */
     int port;               /* port */
     struct sockaddr_in addr; /* address resolved */
     socket_t sock;          /* socket descriptor */
@@ -1541,15 +1542,25 @@ static int encbase64(char *str, const uint8_t *byte, int n)
 /* send ntrip server request -------------------------------------------------*/
 static int reqntrip_s(ntrip_t *ntrip, char *msg)
 {
-    char buff[1024+NTRIP_MAXSTR],*p=buff;
+    char buff[1024+NTRIP_MAXSTR+NTRIP_MAXFQDN],user[512],*p=buff;
+
     
     tracet(3,"reqntrip_s: state=%d\n",ntrip->state);
     
-    p+=sprintf(p,"SOURCE %s %s\r\n",ntrip->passwd,ntrip->mntpnt);
-    p+=sprintf(p,"Source-Agent: NTRIP %s\r\n",NTRIP_AGENT);
-    p+=sprintf(p,"STR: %s\r\n",ntrip->str);
+    p+=sprintf(p,"POST /%s HTTP/1.1\r\n",ntrip->mntpnt);
+    p+=sprintf(p,"Host: %s:%d\r\n",ntrip->tcp->svr.saddr,ntrip->tcp->svr.port);
+    p+=sprintf(p,"User-Agent: NTRIP %s\r\n",NTRIP_AGENT);
+    p+=sprintf(p,"Ntrip-Version: Ntrip/2.0\r\n");
+    p+=sprintf(p,"Ntrip-STR: %s\r\n",ntrip->str);
+    p+=sprintf(p,"Connection: close\r\n");
+    if (*ntrip->user && *ntrip->passwd) {
+        sprintf(user,"%s:%s",ntrip->user,ntrip->passwd);
+        p+=sprintf(p,"Authorization: Basic ");
+        p+=encbase64(p,(unsigned char *)user,strlen(user));
+        p+=sprintf(p,"\r\n");
+    }
     p+=sprintf(p,"\r\n");
-    
+
     if (writetcpcli(ntrip->tcp,(uint8_t *)buff,p-buff,msg)!=p-buff) return 0;
     
     tracet(3,"reqntrip_s: send request state=%d ns=%d\n",ntrip->state,p-buff);
