@@ -61,7 +61,7 @@ static char snrmask_[NFREQ][1024];
 #define STSOPT  "0:off,1:state,2:residual"
 #define ARMOPT  "0:off,1:continuous,2:instantaneous,3:fix-and-hold"
 #define POSOPT  "0:llh,1:xyz,2:single,3:posfile,4:rinexhead,5:rtcm,6:raw"
-#define TIDEOPT "0:off,1:on,2:otl"
+#define TIDEOPT "1:solid+2:otl+4:spole"
 #define PHWOPT  "0:off,1:on,2:precise"
 
 EXPORT opt_t sysopts[]={
@@ -75,7 +75,7 @@ EXPORT opt_t sysopts[]={
     {"pos1-snrmask_L2", 2,  (void *)snrmask_[1],         ""     },
     {"pos1-snrmask_L5", 2,  (void *)snrmask_[2],         ""     },
     {"pos1-dynamics",   3,  (void *)&prcopt_.dynamics,   SWTOPT },
-    {"pos1-tidecorr",   3,  (void *)&prcopt_.tidecorr,   TIDEOPT},
+    {"pos1-tidecorr",   0,  (void *)&prcopt_.tidecorr,   TIDEOPT},
     {"pos1-ionoopt",    3,  (void *)&prcopt_.ionoopt,    IONOPT },
     {"pos1-tropopt",    3,  (void *)&prcopt_.tropopt,    TRPOPT },
     {"pos1-sateph",     3,  (void *)&prcopt_.sateph,     EPHOPT },
@@ -140,6 +140,7 @@ EXPORT opt_t sysopts[]={
     {"stats-eratio1",   1,  (void *)&prcopt_.eratio[0],  ""     },
     {"stats-eratio2",   1,  (void *)&prcopt_.eratio[1],  ""     },
     {"stats-eratio5",   1,  (void *)&prcopt_.eratio[2],  ""     },
+    {"stats-eratio6",   1,  (void *)&prcopt_.eratio[3],  ""     },
     {"stats-errphase",  1,  (void *)&prcopt_.err[1],     "m"    },
     {"stats-errphaseel",1,  (void *)&prcopt_.err[2],     "m"    },
     {"stats-errphasebl",1,  (void *)&prcopt_.err[3],     "m/10km"},

@@ -3,8 +3,8 @@
 BINDIR = /usr/local/bin
 SRC    = ../../../../src
 
-CTARGET= -DTRACE -DENAGLO -DENAQZS -DENACMP -DENAGAL -DENAIRN -DNFREQ=3 -DNEXOBS=3 -DSVR_REUSEADDR
-#CTARGET= -DENAGLO -DENAQZS -DENACMP -DENAGAL -DENAIRN -DNFREQ=3 -DIERS_MODEL -DSVR_REUSEADDR
+CTARGET= -DTRACE -DENAGLO -DENAQZS -DENACMP -DENAGAL -DENAIRN -DNFREQ=4 -DNEXOBS=3 -DSVR_REUSEADDR
+#CTARGET= -DENAGLO -DENAQZS -DENACMP -DENAGAL -DENAIRN -DNFREQ=4 -DIERS_MODEL -DSVR_REUSEADDR
 
 CFLAGS = -std=c99 -Wall -O3 -pedantic -Wno-unused-but-set-variable -I$(SRC) -I.. -DTRACE $(CTARGET) -g
 #LDLIBS  = ../../../lib/iers/gcc/iers.a -lm -lrt -lpthread
@@ -16,6 +16,7 @@ rtkrcv     : sbas.o stream.o rcvraw.o rtcm.o preceph.o options.o pntpos.o ppp.o 
 rtkrcv     : novatel.o ublox.o crescent.o skytraq.o javad.o nvs.o binex.o
 rtkrcv     : rt17.o ephemeris.o rinex.o ionex.o rtcm2.o rtcm3.o rtcm3e.o
 rtkrcv     : tides.o septentrio.o swiftnav.o unicore.o
+rtkrcv     : sofa.o
 
 
 rtkrcv.o   : ../rtkrcv.c
@@ -90,6 +91,8 @@ septentrio.o: $(SRC)/rcv/septentrio.c
 	$(CC) -c $(CFLAGS) $(SRC)/rcv/septentrio.c
 unicore.o: $(SRC)/rcv/unicore.c
 	$(CC) -c $(CFLAGS) $(SRC)/rcv/unicore.c
+sofa.o     : $(SRC)/sofa.c
+	$(CC) -c $(CFLAGS) $(SRC)/sofa.c
 
 rtkrcv.o   : $(SRC)/rtklib.h ../vt.h
 vt.o       : ../vt.h

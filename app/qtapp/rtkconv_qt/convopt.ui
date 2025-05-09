@@ -142,7 +142,7 @@
       <item>
        <widget class="QLabel" name="lbTimeTolerance">
         <property name="text">
-         <string>Time Torelance</string>
+         <string>Time Tolerance</string>
         </property>
         <property name="buddy">
          <cstring>sBTimeTolerance</cstring>
@@ -771,6 +771,13 @@
           </widget>
          </item>
          <item>
+          <widget class="QCheckBox" name="cBFreq6">
+           <property name="text">
+            <string>L6</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QPushButton" name="btnMask">
            <property name="toolTip">
             <string>Edit code mask</string>
@@ -900,7 +907,7 @@
       <item>
        <widget class="QDialogButtonBox" name="buttonBox">
         <property name="standardButtons">
-         <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
+         <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
         </property>
        </widget>
       </item>
@@ -963,6 +970,7 @@
   <tabstop>cBFreq3</tabstop>
   <tabstop>cBFreq4</tabstop>
   <tabstop>cBFreq5</tabstop>
+  <tabstop>cBFreq6</tabstop>
   <tabstop>btnMask</tabstop>
   <tabstop>btnFcn</tabstop>
   <tabstop>btnFrequencies</tabstop>

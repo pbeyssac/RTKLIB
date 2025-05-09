@@ -210,7 +210,7 @@ const prcopt_t prcopt_default={ /* defaults processing options */
     1,1,1,1,0,                  /* armaxiter,estion,esttrop,dynamics,tidecorr */
     1,0,0,0,0,                  /* niter,codesmooth,intpref,sbascorr,sbassatsel */
     0,0,                        /* rovpos,refpos */
-    {300.0,300.0,300.0},        /* eratio[] */
+    {300.0,300.0,300.0,300.0},  /* eratio[] */
     {100.0,0.003,0.003,0.0,1.0,52.0,0.0,0.0}, /* err[-,base,el,bl,dop,snr_max,snr,rcverr] */
     {30.0,0.03,0.3},            /* std[] */
     {1E-4,1E-3,1E-4,1E-1,1E-2,0.0}, /* prn[] */
@@ -268,13 +268,13 @@ static char *obscodes[MAXCODE + 1]={       /* observation code strings */
 };
 static char codepris[7][MAXFREQ][16]={  /* code priority for each freq-index */
     /* L1/E1/B1 L2/E5b/B2b L5/E5a/B2a E6/LEX/B3 E5(a+b)         */
-    {"CPYWMNSLX","CPYWMNDLSX","IQX"    ,""       ,""       ,""}, /* GPS */
-    {"CPABX"   ,"CPABX"     ,"IQX"     ,""       ,""       ,""}, /* GLO */
-    {"CABXZ"   ,"XIQ"       ,"XIQ"     ,"ABCXZ"  ,"IQX"    ,""}, /* GAL */
-    {"CLSXZBE" ,"LSX"       ,"IQXDPZ"  ,"LSXEZ"  ,""       ,""}, /* QZS */
-    {"C"       ,"IQX"       ,""        ,""       ,""       ,""}, /* SBS */
-    {"IQXDPSLZAN","IQXDPZ"  ,"DPX"     ,"IQXDPZA" ,"DPX"    ,""}, /* BDS */
-    {"ABCX"    ,"ABCX"      ,"DPX"     ,""       ,""       ,""}  /* IRN */
+    {"CPYWMNSLX","CPYWMNDLSX","IQX"    ,""       ,""        ,""}, /* GPS */
+    {"CPABX"   ,"CPABX"     ,"IQX"     ,""       ,""        ,""}, /* GLO */
+    {"CABXZ"   ,"XIQ"       ,"XIQ"     ,"ABCXZ"  ,"IQX"     ,""}, /* GAL */
+    {"CLSXZBE" ,"LSX"       ,"IQXDPZ"  ,"LSXEZ"  ,""        ,""}, /* QZS */
+    {"C"       ,"IQX"       ,""        ,""       ,""        ,""}, /* SBS */
+    {"IQX"     ,"IQXDPZ"    ,"DPX"     ,"IQXDPZA","DPXSLZAN","DPX"}, /* BDS */
+    {"ABCX"    ,"ABCX"      ,"DPX"     ,""       ,""        ,""}  /* IRN */
 };
 static fatalfunc_t *fatalfunc=NULL; /* fatal callback function */
 
@@ -540,7 +540,12 @@ extern int satexclude(int sat, double var, int svh, const prcopt_t *opt)
         if (!(sys&opt->navsys)) return 1; /* unselected sat sys */
     }
     if (sys==SYS_QZS) svh&=0xFE; /* mask QZSS LEX health */
-    if (svh) {
+    if (sys == SYS_GLO) {
+      if ((svh & 9) != 0 || (svh & 6) == 4) {
+        trace(3,"unhealthy GLO satellite: sat=%3d svh=%02X\n",sat,svh);
+        return 1;
+      }
+    } else if (svh) {
         trace(3,"unhealthy satellite: sat=%3d svh=%02X\n",sat,svh);
         return 1;
     }
@@ -678,12 +683,12 @@ static int code2freq_BDS(uint8_t code, double *freq)
     char *obs=code2obs(code);
 
     switch (obs[0]) {
-        case '1': *freq=FREQL1;    return 0; /* B1C */
         case '2': *freq=FREQ1_CMP; return 0; /* B1I */
-        case '7': *freq=FREQ2_CMP; return 1; /* B2b */
+        case '7': *freq=FREQ2_CMP; return 1; /* B2,B2b */
         case '5': *freq=FREQL5;    return 2; /* B2a */
         case '6': *freq=FREQ3_CMP; return 3; /* B3 */
-        case '8': *freq=FREQE5ab;  return 4; /* B2ab */
+        case '1': *freq=FREQL1;    return 4; /* B1C,B1A */
+        case '8': *freq=FREQE5ab;  return 5; /* B2ab */
     }
     return -1;
 }
@@ -704,15 +709,15 @@ static int code2freq_IRN(uint8_t code, double *freq)
 * args   : int    sys       I   satellite system (SYS_???)
 *          uint8_t code     I   obs code (CODE_???)
 * return : frequency index (-1: error)
-*                       0     1     2     3     4
-*           --------------------------------------
-*            GPS       L1    L2    L5     -     -
-*            GLONASS   G1    G2    G3     -     -  (G1=G1,G1a,G2=G2,G2a)
-*            Galileo   E1    E5b   E5a   E6   E5ab
-*            QZSS      L1    L2    L5    L6     -
-*            SBAS      L1     -    L5     -     -
-*            BDS       B1    B2b   B2a   B3   B2ab
-*            NavIC     L5     S    L1     -     -
+*                       0     1     2     3     4     5
+*           ---------------------------------------------
+*            GPS       L1    L2    L5     -     -     -
+*            GLONASS   G1    G2    G3     -     -     -  (G1=G1,G1a,G2=G2,G2a)
+*            Galileo   E1    E5b   E5a   E6   E5ab    -
+*            QZSS      L1    L2    L5    L6     -     -
+*            SBAS      L1     -    L5     -     -     -
+*            BDS       B1    B2b   B2a   B3   B1C   B2ab
+*            NavIC     L5     S    L1     -     -     -
 *-----------------------------------------------------------------------------*/
 extern int code2idx(int sys, uint8_t code)
 {
@@ -1006,7 +1011,7 @@ extern double *zeros(int n, int m)
     if ((p=mat(n,m))) for (n=n*m-1;n>=0;n--) p[n]=0.0;
 #else
     if (n<=0||m<=0) return NULL;
-    if (!(p=(double *)calloc(sizeof(double),n*m))) {
+    if (!(p=(double *)calloc(n*m,sizeof(double)))) {
         fatalerr("matrix memory allocation error: n=%d,m=%d\n",n,m);
     }
 #endif
@@ -2379,8 +2384,8 @@ static void nut_iau1980(double t, const double *f, double *dpsi, double *deps)
 extern void eci2ecef(gtime_t tutc, const double *erpv, double *U, double *gmst)
 {
     const double ep2000[]={2000,1,1,12,0,0};
-    static gtime_t tutc_;
-    static double U_[9],gmst_;
+    static THREADLOCAL gtime_t tutc_ = {0, 0};
+    static THREADLOCAL double U_[9], gmst_;
     gtime_t tgps;
     double eps,ze,th,z,t,t2,t3,dpsi,deps,gast,f[5];
     double R1[9],R2[9],R3[9],R[9],W[9],N[9],P[9],NP[9];
@@ -2709,17 +2714,21 @@ extern void readpos(const char *file, const char *rcv, double *pos)
     pos[0]=pos[1]=pos[2]=0.0;
 }
 /* read blq record -----------------------------------------------------------*/
-static int readblqrecord(FILE *fp, double *odisp)
+static int readblqrecord(FILE *fp, double odisp[2][11][3])
 {
-    double v[11];
     char buff[256];
-    int i,n=0;
-
+    int n = 0;
     while (fgets(buff,sizeof(buff),fp)) {
         if (!strncmp(buff,"$$",2)) continue;
+        double v[11];
         if (sscanf(buff,"%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
                    v,v+1,v+2,v+3,v+4,v+5,v+6,v+7,v+8,v+9,v+10)<11) continue;
-        for (i=0;i<11;i++) odisp[n+i*6]=v[i];
+        // Pack the amplitude and phase as expected by hardisp,
+        // change the sign for the phase, to be negative for lags.
+        if (n < 3)
+          for (int i = 0; i < 11; i++) odisp[0][i][n] = v[i];
+        else
+          for (int i = 0; i < 11; i++) odisp[1][i][n - 3] = -v[i];
         if (++n==6) return 1;
     }
     return 0;
@@ -2728,10 +2737,10 @@ static int readblqrecord(FILE *fp, double *odisp)
 * read blq ocean tide loading parameters
 * args   : char   *file       I   BLQ ocean tide loading parameter file
 *          char   *sta        I   station name
-*          double *odisp      O   ocean tide loading parameters
+*          double odisp[2][11][3] O   ocean tide loading parameters
 * return : status (1:ok,0:file open error)
 *-----------------------------------------------------------------------------*/
-extern int readblq(const char *file, const char *sta, double *odisp)
+extern int readblq(const char *file, const char *sta, double odisp[2][11][3])
 {
     FILE *fp;
     char buff[256],staname[17]="",name[17],*p;
@@ -2767,44 +2776,94 @@ extern int readblq(const char *file, const char *sta, double *odisp)
 *          erp_t  *erp        O   earth rotation parameters
 * return : status (1:ok,0:file open error)
 *-----------------------------------------------------------------------------*/
-extern int readerp(const char *file, erp_t *erp)
-{
-    FILE *fp;
-    erpd_t *erp_data;
-    char buff[256];
+extern int readerp(const char *file, erp_t *erp) {
+  trace(3, "readerp: file=%s\n", file);
 
-    trace(3,"readerp: file=%s\n",file);
-
-    if (!(fp=fopen(file,"r"))) {
-        trace(2,"erp file open error: file=%s\n",file);
-        return 0;
+  FILE *fp = fopen(file, "r");
+  if (!fp) {
+    trace(2, "erp file open error: file=%s\n", file);
+    return 0;
+  }
+  char buff[256];
+  int state = 0;
+  int utcp = 0, taip = 0;
+  while (fgets(buff, sizeof(buff), fp)) {
+    // Detect the IGS format, and support concatenated files.
+    if (strstr(buff, "version 2") || strstr(buff, "VERSION 2")) {
+      state = 1;
+      continue;
     }
-    while (fgets(buff,sizeof(buff),fp)) {
-        double v[14]={0};
-        if (sscanf(buff,"%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
-                   v,v+1,v+2,v+3,v+4,v+5,v+6,v+7,v+8,v+9,v+10,v+11,v+12,v+13)<5) {
-            continue;
-        }
-        if (erp->n>=erp->nmax) {
-            erp->nmax=erp->nmax<=0?128:erp->nmax*2;
-            erp_data=(erpd_t *)realloc(erp->data,sizeof(erpd_t)*erp->nmax);
-            if (!erp_data) {
-                free(erp->data); erp->data=NULL; erp->n=erp->nmax=0;
-                fclose(fp);
-                return 0;
-            }
-            erp->data=erp_data;
-        }
-        erp->data[erp->n].mjd=v[0];
-        erp->data[erp->n].xp=v[1]*1E-6*AS2R;
-        erp->data[erp->n].yp=v[2]*1E-6*AS2R;
-        erp->data[erp->n].ut1_utc=v[3]*1E-7;
-        erp->data[erp->n].lod=v[4]*1E-7;
-        erp->data[erp->n].xpr=v[12]*1E-6*AS2R;
-        erp->data[erp->n++].ypr=v[13]*1E-6*AS2R;
+    if (state == 0) {
+      // Ignore content without firstly seeing the IGS format version.
+      continue;
     }
-    fclose(fp);
-    return 1;
+    if (state == 1) {
+      // IGS format content header search. Data is not read without firstly
+      // reading the content header line. A version line is detected above,
+      // and other lines are ignored. Allow some variation in case.
+      if (strstr(buff, "MJD") || strstr(buff, "mjd") || strstr(buff, "Xpole") ||
+          strstr(buff, "xpole") || strstr(buff, "Ypole") || strstr(buff, "ypole") ||
+          strstr(buff, "UT1") || strstr(buff, "ut1") || strstr(buff, "UTC") ||
+          strstr(buff, "utc") || strstr(buff, "TAI") || strstr(buff, "tai") ||
+          strstr(buff, "LOD") || strstr(buff, "lod")) {
+        // Note UTC vs TAI.
+        utcp = !!(strstr(buff, "UTC") || strstr(buff, "utc"));
+        taip = !!(strstr(buff, "TAI") || strstr(buff, "tai"));
+        state = 2;
+      }
+      continue;
+    }
+    if (state == 2) {
+      // IGS format data search. Detect data lines as containing only
+      // numeric data. A version line is detected above, and other lines are
+      // ignored.
+      int data = 0;
+      for (size_t i = 0; i < strlen(buff); i++) {
+        char ch = buff[i];
+        if (ch == '\0' || ch == '\r' || ch == '\n') break;
+        if (ch == '.' || ch == '-' || ch == '+' || ch == ' ' || ch == '\t') continue;
+        if (ch < '0' || ch > '9') {
+          data = 0;
+          break;
+        }
+        data = 1;
+      }
+      if (!data) continue;
+      double v[14] = {0};
+      if (sscanf(buff, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf", v, v + 1, v + 2,
+                 v + 3, v + 4, v + 5, v + 6, v + 7, v + 8, v + 9, v + 10, v + 11, v + 12,
+                 v + 13) < 5) {
+        continue;
+      }
+      if (erp->n >= erp->nmax) {
+        erp->nmax = erp->nmax <= 0 ? 128 : erp->nmax * 2;
+        erpd_t *erp_data = (erpd_t *)realloc(erp->data, sizeof(erpd_t) * erp->nmax);
+        if (erp_data == NULL) {
+          free(erp->data);
+          erp->data = NULL;
+          erp->n = erp->nmax = 0;
+          fclose(fp);
+          return 0;
+        }
+        erp->data = erp_data;
+      }
+      erp->data[erp->n].mjd = v[0];
+      erp->data[erp->n].xp = v[1] * 1E-6 * AS2R;
+      erp->data[erp->n].yp = v[2] * 1E-6 * AS2R;
+      erp->data[erp->n].ut1_utc = v[3] * 1E-7;
+      if (taip) {
+        // Convert UT1-TAI to UT1-UTC.
+        const double ep[] = {2000, 1, 1, 12, 0, 0};
+        gtime_t tutc = timeadd(epoch2time(ep), (v[0] - 51544.5) * 86400.0);
+        erp->data[erp->n].ut1_utc += timediff(utc2gpst(tutc), tutc) + 19;
+      }
+      erp->data[erp->n].lod = v[4] * 1E-7;
+      erp->data[erp->n].xpr = v[12] * 1E-6 * AS2R;
+      erp->data[erp->n++].ypr = v[13] * 1E-6 * AS2R;
+    }
+  }
+  fclose(fp);
+  return 1;
 }
 /* get earth rotation parameter values -----------------------------------------
 * get earth rotation parameter values
@@ -3087,10 +3146,10 @@ extern int readnav(const char *file, nav_t *nav)
             nav->geph[prn-1]=geph0;
             nav->geph[prn-1].sat=sat;
             toe_time=tof_time=0;
-            (void)sscanf(p+1,"%d,%d,%d,%d,%d,%ld,%ld,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,"
+            (void)sscanf(p+1,"%d,%d,%d,%d,%d,%d,%ld,%ld,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,"
                         "%lf,%lf,%lf,%lf",
                    &nav->geph[prn-1].iode,&nav->geph[prn-1].frq,&nav->geph[prn-1].svh,
-                   &nav->geph[prn-1].sva,&nav->geph[prn-1].age,
+                   &nav->geph[prn-1].flags,&nav->geph[prn-1].sva,&nav->geph[prn-1].age,
                    &toe_time,&tof_time,
                    &nav->geph[prn-1].pos[0],&nav->geph[prn-1].pos[1],&nav->geph[prn-1].pos[2],
                    &nav->geph[prn-1].vel[0],&nav->geph[prn-1].vel[1],&nav->geph[prn-1].vel[2],
@@ -3153,9 +3212,10 @@ extern int savenav(const char *file, const nav_t *nav)
     for (i=0;i<MAXPRNGLO;i++) {
         if (nav->geph[i].tof.time==0) continue;
         satno2id(nav->geph[i].sat,id);
-        fprintf(fp,"%s,%d,%d,%d,%d,%d,%d,%d,%.14E,%.14E,%.14E,%.14E,%.14E,%.14E,"
+        fprintf(fp,"%s,%d,%d,%d,%d,%d,%d,%d,%d,%.14E,%.14E,%.14E,%.14E,%.14E,%.14E,"
                    "%.14E,%.14E,%.14E,%.14E,%.14E,%.14E\n",
                 id,nav->geph[i].iode,nav->geph[i].frq,nav->geph[i].svh,
+                nav->geph[i].flags,
                 nav->geph[i].sva,nav->geph[i].age,(int)nav->geph[i].toe.time,
                 (int)nav->geph[i].tof.time,
                 nav->geph[i].pos[0],nav->geph[i].pos[1],nav->geph[i].pos[2],
@@ -3854,84 +3914,148 @@ extern void antmodel_s(const pcv_t *pcv, double nadir, double *dant)
     }
     trace(4,"antmodel_s: dant=%6.3f %6.3f\n",dant[0],dant[1]);
 }
-/* sun and moon position in eci (ref [4] 5.1.1, 5.2.1) -----------------------*/
-static void sunmoonpos_eci(gtime_t tut, double *rsun, double *rmoon)
-{
-    const double ep2000[]={2000,1,1,12,0,0};
-    double t,f[5],eps,Ms,ls,rs,lm,pm,rm,sine,cose,sinp,cosp,sinl,cosl;
 
-    char tstr[40];
-    trace(4,"sunmoonpos_eci: tut=%s\n",time2str(tut,tstr,3));
+/* Sun and moon position in ECI (ref [4] 5.1.1, 5.2.1) -----------------------*/
+int epv00(double date1, double date2, double pvh[2][3], double pvb[2][3]);
+void moon98(double date1, double date2, double pv[2][3]);
+static void sunpos_eci(gtime_t tutc, const double *erpv, double *rsun) {
+  char tstr[40];
+  trace(4, "sunpos_eci: tutc=%s\n", time2str(tutc, tstr, 3));
 
-    t=timediff(tut,epoch2time(ep2000))/86400.0/36525.0;
+#ifdef SUNPOS_SOFA  /* use high accuracy functions in sofa.c */
+  static THREADLOCAL gtime_t tutc_ = {0, 0};
+  static THREADLOCAL double rsun_[3];
 
-    /* astronomical arguments */
-    ast_args(t,f);
+  if (fabs(timediff(tutc, tutc_)) < 1e-6) {  // Check cache.
+    for (int i = 0; i < 3; i++) rsun[i] = rsun_[i];
+    return;
+  }
+  tutc_ = tutc;
 
-    /* obliquity of the ecliptic */
-    eps=23.439291-0.0130042*t;
-    sine=sin(eps*D2R); cose=cos(eps*D2R);
+  // J2000 Terrestrial time
+  gtime_t tgps = utc2gpst(tutc);
+  const double ep2000[] = {2000, 1, 1, 12, 0, 0};
+  double j2000 = (timediff(tgps, epoch2time(ep2000)) + 19.0 + 32.184) / 86400.0;
 
-    /* sun position in eci */
-    if (rsun) {
-        Ms=357.5277233+35999.05034*t;
-        ls=280.460+36000.770*t+1.914666471*sin(Ms*D2R)+0.019994643*sin(2.0*Ms*D2R);
-        rs=AU*(1.000140612-0.016708617*cos(Ms*D2R)-0.000139589*cos(2.0*Ms*D2R));
-        sinl=sin(ls*D2R); cosl=cos(ls*D2R);
-        rsun[0]=rs*cosl;
-        rsun[1]=rs*cose*sinl;
-        rsun[2]=rs*sine*sinl;
+  // Sun position in ECI.
+  double pvh[2][3], pvb[2][3];
+  epv00(2451545.0, j2000, pvh, pvb);
+  for (int i = 0; i < 3; i++) rsun[i] = rsun_[i] = -pvh[0][i] * AU;
+#else
+  // Original RTKLIB version
+  gtime_t tut = timeadd(tutc, erpv[2]);  // UTC -> UT1
+  const double ep2000[] = {2000, 1, 1, 12, 0, 0};
+  double t = timediff(tut, epoch2time(ep2000)) / 86400.0 / 36525.0;
 
-        trace(5,"rsun =%.3f %.3f %.3f\n",rsun[0],rsun[1],rsun[2]);
-    }
-    /* moon position in eci */
-    if (rmoon) {
-        lm=218.32+481267.883*t+6.29*sin(f[0])-1.27*sin(f[0]-2.0*f[3])+
-           0.66*sin(2.0*f[3])+0.21*sin(2.0*f[0])-0.19*sin(f[1])-0.11*sin(2.0*f[2]);
-        pm=5.13*sin(f[2])+0.28*sin(f[0]+f[2])-0.28*sin(f[2]-f[0])-
-           0.17*sin(f[2]-2.0*f[3]);
-        rm=RE_WGS84/sin((0.9508+0.0518*cos(f[0])+0.0095*cos(f[0]-2.0*f[3])+
-                   0.0078*cos(2.0*f[3])+0.0028*cos(2.0*f[0]))*D2R);
-        sinl=sin(lm*D2R); cosl=cos(lm*D2R);
-        sinp=sin(pm*D2R); cosp=cos(pm*D2R);
-        rmoon[0]=rm*cosp*cosl;
-        rmoon[1]=rm*(cose*cosp*sinl-sine*sinp);
-        rmoon[2]=rm*(sine*cosp*sinl+cose*sinp);
+  // Astronomical arguments.
+  double f[5];
+  ast_args(t, f);
 
-        trace(5,"rmoon=%.3f %.3f %.3f\n",rmoon[0],rmoon[1],rmoon[2]);
-    }
+  // Obliquity of the ecliptic.
+  double eps = 23.439291 - 0.0130042 * t;
+  double sine = sin(eps * D2R);
+  double cose = cos(eps * D2R);
+
+  /* Sun position in ECI */
+  double Ms = 357.5277233 + 35999.05034 * t;
+  double ls =
+      280.460 + 36000.770 * t + 1.914666471 * sin(Ms * D2R) + 0.019994643 * sin(2.0 * Ms * D2R);
+  double rs = AU * (1.000140612 - 0.016708617 * cos(Ms * D2R) - 0.000139589 * cos(2.0 * Ms * D2R));
+  double sinl = sin(ls * D2R);
+  double cosl = cos(ls * D2R);
+  rsun[0] = rs * cosl;
+  rsun[1] = rs * cose * sinl;
+  rsun[2] = rs * sine * sinl;
+#endif
+  trace(5, "rsun =%.3f %.3f %.3f\n", rsun[0], rsun[1], rsun[2]);
 }
-/* sun and moon position -------------------------------------------------------
-* get sun and moon position in ecef
-* args   : gtime_t tut      I   time in ut1
-*          double *erpv     I   erp value {xp,yp,ut1_utc,lod} (rad,rad,s,s/d)
-*          double *rsun     IO  sun position in ecef  (m) (NULL: not output)
-*          double *rmoon    IO  moon position in ecef (m) (NULL: not output)
-*          double *gmst     O   gmst (rad)
-* return : none
-*-----------------------------------------------------------------------------*/
-extern void sunmoonpos(gtime_t tutc, const double *erpv, double *rsun,
-                       double *rmoon, double *gmst)
-{
-    gtime_t tut;
-    double rs[3],rm[3],U[9],gmst_;
+static void moonpos_eci(gtime_t tutc, const double *erpv, double *rmoon) {
+  char tstr[40];
+  trace(4, "moonpos_eci: tutc=%s\n", time2str(tutc, tstr, 3));
 
-    char tstr[40];
-    trace(4,"sunmoonpos: tutc=%s\n",time2str(tutc,tstr,3));
+#ifdef MOONPOS_SOFA   /* use high accuracy functions in sofa.c */
+  static THREADLOCAL gtime_t tutc_ = {0, 0};
+  static THREADLOCAL double rmoon_[3];
 
-    tut=timeadd(tutc,erpv[2]); /* utc -> ut1 */
+  if (fabs(timediff(tutc, tutc_)) < 1e-6) {  // Check cache.
+    for (int i = 0; i < 3; i++) rmoon[i] = rmoon_[i];
+    return;
+  }
+  tutc_ = tutc;
 
-    /* sun and moon position in eci */
-    sunmoonpos_eci(tut,rsun?rs:NULL,rmoon?rm:NULL);
+  // J2000 Terrestrial time
+  gtime_t tgps = utc2gpst(tutc);
+  const double ep2000[] = {2000, 1, 1, 12, 0, 0};
+  double j2000 = (timediff(tgps, epoch2time(ep2000)) + 19.0 + 32.184) / 86400.0;
+  double pv[2][3];
+  moon98(2451545.0, j2000, pv);
+  for (int i = 0; i < 3; i++) rmoon[i] = rmoon_[i] = pv[0][i] * AU;
+#else
+  // Original RTKLIB version
+  gtime_t tut = timeadd(tutc, erpv[2]);  // UTC -> UT1
+  const double ep2000[] = {2000, 1, 1, 12, 0, 0};
+  double t = timediff(tut, epoch2time(ep2000)) / 86400.0 / 36525.0;
 
-    /* eci to ecef transformation matrix */
-    eci2ecef(tutc,erpv,U,&gmst_);
+  // Astronomical arguments.
+  double f[5];
+  ast_args(t, f);
 
-    /* sun and moon position in ecef */
-    if (rsun ) matmul("NN",3,1,3,U,rs,rsun );
-    if (rmoon) matmul("NN",3,1,3,U,rm,rmoon);
-    if (gmst ) *gmst=gmst_;
+  // Obliquity of the ecliptic.
+  double eps = 23.439291 - 0.0130042 * t;
+  double sine = sin(eps * D2R);
+  double cose = cos(eps * D2R);
+  double lm = 218.32 + 481267.883 * t + 6.29 * sin(f[0]) - 1.27 * sin(f[0] - 2.0 * f[3]) +
+              0.66 * sin(2.0 * f[3]) + 0.21 * sin(2.0 * f[0]) - 0.19 * sin(f[1]) -
+              0.11 * sin(2.0 * f[2]);
+  double pm = 5.13 * sin(f[2]) + 0.28 * sin(f[0] + f[2]) - 0.28 * sin(f[2] - f[0]) -
+              0.17 * sin(f[2] - 2.0 * f[3]);
+  double rm = RE_WGS84 / sin((0.9508 + 0.0518 * cos(f[0]) + 0.0095 * cos(f[0] - 2.0 * f[3]) +
+                              0.0078 * cos(2.0 * f[3]) + 0.0028 * cos(2.0 * f[0])) *
+                             D2R);
+  double sinl = sin(lm * D2R);
+  double cosl = cos(lm * D2R);
+  double sinp = sin(pm * D2R);
+  double cosp = cos(pm * D2R);
+  rmoon[0] = rm * cosp * cosl;
+  rmoon[1] = rm * (cose * cosp * sinl - sine * sinp);
+  rmoon[2] = rm * (sine * cosp * sinl + cose * sinp);
+#endif
+  trace(5, "rmoon=%.3f %.3f %.3f\n", rmoon[0], rmoon[1], rmoon[2]);
 }
+
+/* Sun and moon position -------------------------------------------------------
+ * Get sun and moon position in ECEF
+ * Args   : gtime_t tutc     I   time in UTC
+ *          double *erpv     I   erp value {xp,yp,ut1_utc,lod} (rad,rad,s,s/d)
+ *          double *rsun     IO  sun position in ECEF  (m) (NULL: not output)
+ *          double *rmoon    IO  moon position in ECEF (m) (NULL: not output)
+ *          double *gmst     O   GMST (rad)
+ * Return : none
+ *----------------------------------------------------------------------------*/
+extern void sunmoonpos(gtime_t tutc, const double *erpv, double *rsun, double *rmoon,
+                       double *gmst) {
+  char tstr[40];
+  trace(4, "sunmoonpos: tutc=%s\n", time2str(tutc, tstr, 3));
+
+  // ECI to ECEF transformation matrix.
+  double U[9], gmst_;
+  eci2ecef(tutc, erpv, U, &gmst_);
+  if (gmst) *gmst = gmst_;
+
+  // Sun and moon position in ECI.
+  double rs[3], rm[3];
+  if (rsun) {
+    sunpos_eci(tutc, erpv, rs);
+    // Sun position in ECEF.
+    matmul("NN", 3, 1, 3, U, rs, rsun);
+  }
+  if (rmoon) {
+    moonpos_eci(tutc, erpv, rm);
+    // Moon position in ECEF.
+    matmul("NN", 3, 1, 3, U, rm, rmoon);
+  }
+}
+
 /* uncompress file -------------------------------------------------------------
 * uncompress (uncompress/unzip/uncompact hatanaka-compression/tar) file
 * args   : char   *file     I   input file

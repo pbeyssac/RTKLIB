@@ -58,7 +58,7 @@ MainWindow *mainWindow;
 #define PRGNAME     "RtkConv Qt"        // program name
 #define MAXHIST     20                  // max number of histories
 #define TSTARTMARGIN 60.0               // time margin for file name replacement
-#define TRACEFILE   "rtkconv_qt.trace"     // trace file
+#define TRACEFILE   "rtkconv_qt.trace"  // trace file
 
 static int abortf = 0;
 
@@ -451,7 +451,7 @@ void MainWindow::selectInputFile()
 {
     QString filename = QFileDialog::getOpenFileName(this, tr("Input RTCM, RCV RAW or RINEX File"), ui->cBInputFile->currentText(),
                                                     tr("All (*.*);;RTCM 2 (*.rtcm2);;RTCM 3 (*.rtcm3);;NovtAtel (*.gps);;ublox (*.ubx);;SuperStart II (*.log);;"
-                                                       "Hemisphere (*.bin);;Javad (*.jps);;RINEX OBS (*.obs *.*O);Septentrio (*.sbf)"));
+                                                       "Hemisphere (*.bin);;Javad (*.jps);;RINEX OBS (*.obs *.*O);;Septentrio (*.sbf)"));
 
     if (!filename.isEmpty()) {
         ui->cBInputFile->setCurrentText(QDir::toNativeSeparators(filename));
@@ -494,6 +494,7 @@ void MainWindow::selectOutputFile1()
 void MainWindow::selectOutputFile2()
 {
     QString selectedFilter = tr("RINEX NAV (*.nav *.*N *.*P)");
+
     QString filename = QFileDialog::getOpenFileName(this, tr("Output RINEX NAV File"), ui->lEOutputFile2->text(),
                                         tr("All (*.*);;RINEX OBS (*.obs *.*O);;RINEX NAV (*.nav *.*N *.*P);;RINEX GNAV (*.gnav *.*G);;RINEX HNAV (*.hnav *.*H);;"
                                            "RINEX QNAV (*.qnav *.*Q);;RINEX LNAV (*.lnav *.*L);;RINEX CNAV (*.cnav *.*C);;RINEX INAV (*.inav *.*I);;"
@@ -557,7 +558,7 @@ void MainWindow::selectOutputFile7()
 {
     QString selectedFilter = tr("RINEX CNAV (*.cnav *.*C)");
 
-    QString filename = QFileDialog::getOpenFileName(this, tr("Output SRINEX CNAVFile"), ui->lEOutputFile7->text(),
+    QString filename = QFileDialog::getOpenFileName(this, tr("Output RINEX CNAV File"), ui->lEOutputFile7->text(),
                                                     tr("All (*.*);;RINEX OBS (*.obs *.*O);;RINEX NAV (*.nav *.*N *.*P);;RINEX GNAV (*.gnav *.*G);;RINEX HNAV (*.hnav *.*H);;"
                                                        "RINEX QNAV (*.qnav *.*Q);;RINEX LNAV (*.lnav *.*L);;RINEX CNAV (*.cnav *.*C);;RINEX INAV (*.inav *.*I);;"
                                                        "SBAS Log (*.sbs);;LEX Log (*.lex)"), &selectedFilter);
@@ -767,7 +768,7 @@ void MainWindow::convertFile()
 {
     QString inputFile_Text = ui->cBInputFile->currentText();
     int i;
-    double RNXVER[] = { 210, 211, 212, 300, 301, 302, 303, 304 };
+    double RNXVER[] = { 210, 211, 212, 300, 301, 302, 303, 304, 305, 400, 401, 402 };
 
     conversionThread = new ConversionThread(this);
 
@@ -856,6 +857,12 @@ void MainWindow::convertFile()
 
     if (conversionThread->format == STRFMT_RTCM2 || conversionThread->format == STRFMT_RTCM3 || conversionThread->format == STRFMT_RT17) {
         // input start date/time for rtcm 2, rtcm 3, RT17 or CMR
+        if (ui->cBTimeStart->isChecked()) {
+            gtime_t ts,te;
+            double tint, tunit;
+            getTime(&ts, &te, &tint, &tunit);
+            startDialog->setTime(ts);
+        }
         startDialog->exec();
         if (startDialog->result() != QDialog::Accepted) {
             delete conversionThread;
@@ -995,7 +1002,7 @@ void MainWindow::loadOptions()
     ui->cBTimeInterval->setChecked(ini.value("set/timeintf", false).toBool());
     ui->dateTimeStart->setDate(ini.value("set/timey1", "2020/01/01").value<QDate>());
     ui->dateTimeStart->setTime(ini.value("set/timeh1", "00:00:00").value<QTime>());
-    ui->dateTimeStop->setDate(ini.value("set/timey2", "2020/01/01").value<QDate>());
+    ui->dateTimeStop->setDate(ini.value("set/timey2", "2020/01/02").value<QDate>());
     ui->dateTimeStop->setTime(ini.value("set/timeh2", "00:00:00").value<QTime>());
     ui->comboTimeInterval->setCurrentText(ini.value("set/timeint", "1").toString());
     ui->cBTimeUnit->setChecked(ini.value("set/timeunitf", false).toBool());

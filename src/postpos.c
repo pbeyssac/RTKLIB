@@ -329,7 +329,7 @@ static int inputobs(obsd_t *obs, int solq, const prcopt_t *popt)
                   nr=nextobsb(&obss,&iobsr,2);
                 }
             } else {
-                /* If not interpolating, fnd the closest iobsr timestamp before or after iobsu. */
+                /* If not interpolating, find the closest iobsr timestamp before or after iobsu. */
                 double dt=fabs(timediff(obss.data[iobsr].time,obss.data[iobsu].time));
                 int i=iobsr,nr=nextobsb(&obss,&i,2);
                 while (nr>0) {
@@ -437,6 +437,10 @@ static void procpos(FILE *fp, FILE *fptm, const prcopt_t *popt, const solopt_t *
     gtime_t time={0};
     sol_t sol={{0}},oldsol={{0}},newsol={{0}};
     obsd_t *obs_ptr = (obsd_t *)malloc(sizeof(obsd_t)*MAXOBS*2); /* for rover and base */
+    if (obs_ptr == NULL) {
+      trace(2, "procpos: memory allocation failure\n");
+      return;
+    }
     double rb[3]={0};
     int i,nobs,n,solstatic,num=0,pri[]={6,1,2,3,4,5,1,6};
 
@@ -749,8 +753,15 @@ static int readobsnav(gtime_t ts, gtime_t te, double ti, const char **infile,
             if (obs->n>nobs) rcv++;
             ind=index[i]; nobs=obs->n;
         }
+        gtime_t tsw = ts, tew = te;
+        if (rcv > 1) {
+          // Expand the time span a little for base observations to support
+          // interpolation at the extents of the rover observations.
+          if (tsw.time >= 60) tsw = timeadd(tsw, -60);
+          if (tew.time > 0) tew = timeadd(tew, 60);
+        }
         /* read rinex obs and nav file */
-        if (readrnxt(infile[i],rcv,ts,te,ti,prcopt->rnxopt[rcv<=1?0:1],obs,nav,
+        if (readrnxt(infile[i],rcv,tsw,tew,ti,prcopt->rnxopt[rcv<=1?0:1],obs,nav,
                      rcv<=2?sta+rcv-1:NULL)<0) {
             checkbrk("error : insufficient memory");
             trace(1,"insufficient memory\n");
@@ -1417,7 +1428,7 @@ extern int postpos(gtime_t ts, gtime_t te, double ti, double tu,
             closeses(&navs,&pcvss,&pcvsr);
             return 0;
         }
-        for (i=0;i<n&&i<MAXINFILE;i++) {
+        for (i=0;i<MAXINFILE;i++) {
             if (!(ifile[i]=(char *)malloc(1024))) {
                 for (;i>=0;i--) free(ifile[i]);
                 closeses(&navs,&pcvss,&pcvsr);
@@ -1477,7 +1488,7 @@ extern int postpos(gtime_t ts, gtime_t te, double ti, double tu,
 
             if (stat==1) break;
         }
-        for (i=0;i<n&&i<MAXINFILE;i++) free(ifile[i]);
+        for (i=0;i<MAXINFILE;i++) free(ifile[i]);
     }
     else if (ts.time!=0) {
         for (i=0;i<n&&i<MAXINFILE;i++) {

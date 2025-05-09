@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>701</width>
-    <height>672</height>
+    <height>565</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -41,11 +41,24 @@
          <property name="toolTip">
           <string/>
          </property>
+         <property name="dateTime">
+          <datetime>
+           <hour>0</hour>
+           <minute>0</minute>
+           <second>0</second>
+           <year>2020</year>
+           <month>1</month>
+           <day>1</day>
+          </datetime>
+         </property>
+         <property name="displayFormat">
+          <string>yyyy/MM/dd hh:mm:ss</string>
+         </property>
          <property name="calendarPopup">
           <bool>true</bool>
          </property>
          <property name="timeSpec">
-          <enum>Qt::TimeSpec::UTC</enum>
+          <enum>Qt::UTC</enum>
          </property>
         </widget>
        </item>
@@ -81,11 +94,24 @@
        </item>
        <item row="1" column="3" colspan="3">
         <widget class="QDateTimeEdit" name="dateTimeStop">
+         <property name="dateTime">
+          <datetime>
+           <hour>0</hour>
+           <minute>0</minute>
+           <second>0</second>
+           <year>2020</year>
+           <month>1</month>
+           <day>2</day>
+          </datetime>
+         </property>
+         <property name="displayFormat">
+          <string>yyyy/MM/dd hh:mm:ss</string>
+         </property>
          <property name="calendarPopup">
           <bool>true</bool>
          </property>
          <property name="timeSpec">
-          <enum>Qt::TimeSpec::UTC</enum>
+          <enum>Qt::UTC</enum>
          </property>
         </widget>
        </item>
@@ -280,7 +306,7 @@
           <string>File format</string>
          </property>
          <property name="sizeAdjustPolicy">
-          <enum>QComboBox::SizeAdjustPolicy::AdjustToContents</enum>
+          <enum>QComboBox::AdjustToContents</enum>
          </property>
         </widget>
        </item>
@@ -537,7 +563,7 @@
       <item>
        <widget class="QPushButton" name="btnAbort">
         <property name="toolTip">
-         <string>Abort conversion</string>
+         <string>Abort RTKConv</string>
         </property>
         <property name="text">
          <string>Abort</string>

@@ -99,6 +99,7 @@ extern "C" {
 Plot::Plot(QWidget *parent) : QMainWindow(parent), ui(new Ui::Plot)
 {
     ui->setupUi(this);
+    setAcceptDrops(true);
 
     setWindowIcon(QIcon(":/icons/rtk2"));
 
@@ -156,6 +157,8 @@ Plot::Plot(QWidget *parent) : QMainWindow(parent), ui(new Ui::Plot)
     azimuth = elevation = NULL;
     for (int i = 0; i < NFREQ + NEXOBS; i++)
         multipath[i] = NULL;
+
+    ionosphere = NULL;
 
     graphTrack = new Graph(ui->lblDisplay);
     graphTrack->fit = 0;
@@ -273,7 +276,7 @@ Plot::Plot(QWidget *parent) : QMainWindow(parent), ui(new Ui::Plot)
     tVdirectorySelector->setModel(dirModel);
     tVdirectorySelector->hideColumn(1);
     tVdirectorySelector->hideColumn(2);
-    tVdirectorySelector->hideColumn(3); //only show diretory names
+    tVdirectorySelector->hideColumn(3); //only show directory names
 
     fileModel = new QFileSystemModel(this);
     fileModel->setFilter((fileModel->filter() & ~QDir::Dirs & ~QDir::AllDirs));
@@ -475,7 +478,7 @@ void Plot::showEvent(QShowEvent *event)
     parser.addOption(path2Option);
 
     QCommandLineOption traceOption(QStringList() << "x" << "tracelevel",
-                       QCoreApplication::translate("main", "set trace lavel to <tracelavel>."),
+                       QCoreApplication::translate("main", "set trace lavel to <tracelevel>."),
                        QCoreApplication::translate("main", "tracelevel"));
     parser.addOption(traceOption);
 
@@ -1253,11 +1256,6 @@ void Plot::activateSolution1()
 {
     trace(3, "activateSolution1\n");
 
-    if (solutionData[0].n <= 0 && observation.n < 0) {
-        ui->btnSolution1->setChecked(false);
-        return;
-    }
-
     ui->btnSolution12->setChecked(false);
 
     updateTime();
@@ -1268,11 +1266,6 @@ void Plot::activateSolution1()
 void Plot::activateSolution2()
 {
     trace(3, "activateSolution2\n");
-
-    if (solutionData[1].n <= 0) {
-        ui->btnSolution2->setChecked(false);
-        return;
-    }
 
     ui->btnSolution12->setChecked(false);
 
@@ -1509,7 +1502,7 @@ void Plot::mouseDownTrack(int x, int y)
         dragState = 0;
 
         updateTime();
-        updateStatusBarInformation();        
+        updateStatusBarInformation();
         refresh();
     } else {
         graphTrack->getCenter(dragCenterX, dragCenterY);
